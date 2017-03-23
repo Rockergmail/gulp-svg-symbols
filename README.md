@@ -268,18 +268,18 @@ ouput a js file which can check if support svg, if yes, then append svg symbols 
 ```js
 gulp.task('fallback', function () {
     return gulp.src(svgGlob)
-    .pipe(svgSymbols({
-        fallback: true,  /*default is false*/
-        templates: [
-            "default-js"
-        ],
-        noSvgClassname: ".no-svg",  /*default*/
-        iconClassname: ".icon",   /*default*/
-        slug: function(name) {
-          return "icon-" + name;
-        }
-    }))
-    .pipe(gulp.dest('assets'));
+        .pipe(svgSymbols({
+            templates: [
+                'default-js'
+            ],
+            noSvgClassname: ".no-svg",  /*default*/
+            iconClassname: ".icon",   /*default*/
+            fallback: true,
+            slug: function (name) {
+                return "icon-" + name
+            },
+        }))
+        .pipe(gulp.dest('assets'));
 });
 ```
 

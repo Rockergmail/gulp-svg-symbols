@@ -65,3 +65,17 @@ gulp.task('default', function (cb) {
   console.log('watch');
   cb();
 });
+
+gulp.task('fallback', function () {
+    return gulp.src(svgGlob)
+        .pipe(svgSymbols({
+            templates: [
+                'default-js'
+            ],
+            fallback: true,
+            slug: function (name) {
+                return "icon-" + name
+            },
+        }))
+        .pipe(gulp.dest('assets'));
+});

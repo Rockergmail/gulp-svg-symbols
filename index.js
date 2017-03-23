@@ -8,7 +8,6 @@ var warn          = gutil.colors.yellow;
 var grey          = gutil.colors.grey;
 var through       = require('through2');
 var BPromise      = require('bluebird');
-var svgpng       = require('gulp-svg2png');
 var base        = require('gulp-base64-encode');
 var defaults      = require('./lib/default-config');
 var svg           = require('./lib/svg');
