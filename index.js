@@ -8,7 +8,8 @@ var warn          = gutil.colors.yellow;
 var grey          = gutil.colors.grey;
 var through       = require('through2');
 var BPromise      = require('bluebird');
-
+var svgpng       = require('gulp-svg2png');
+var base        = require('gulp-base64-encode');
 var defaults      = require('./lib/default-config');
 var svg           = require('./lib/svg');
 var templates     = require('./lib/templates.js');
@@ -16,76 +17,88 @@ var utils         = require('./lib/utils.js');
 
 var PLUGIN_NAME   = utils.name;
 var templatesPath = {
-  'default-svg':  path.join(__dirname, './templates/svg-symbols.svg'),
-  'default-css':  path.join(__dirname, './templates/svg-symbols.css'),
-  'default-demo': path.join(__dirname, './templates/svg-symbols-demo-page.html')
+    'default-svg':  path.join(__dirname, './templates/svg-symbols.svg'),
+    'default-js':  path.join(__dirname, './templates/svg-symbols.js'),
+    'default-css':  path.join(__dirname, './templates/svg-symbols.css'),
+    'default-demo': path.join(__dirname, './templates/svg-symbols-demo-page.html')
 };
 
 function gulpSvgSymbols(opts) {
-  opts = opts || {};
-  var buffer  = [];
-  var defs    = [];
+    opts = opts || {};
+    var buffer  = [];
+    var defs    = [];
 
-  // clone everything as we don't want to mutate anything
-  var options = _.defaults(_.cloneDeep(opts), _.cloneDeep(defaults));
+    // clone everything as we don't want to mutate anything
+    var options = _.defaults(_.cloneDeep(opts), _.cloneDeep(defaults));
 
-  // expand path to default templates
-  options.templates = options.templates.map(function (pathName) {
-    if (pathName in templatesPath) return templatesPath[pathName];
-    return pathName;
-  });
-
-  // buffer and transform every files
-  return through.obj(function transform(file, encoding, cb) {
-
-    if (file.isNull()) {
-      return cb(null, file);
-    }
-
-    // we don't handle streams :,(
-    // use https://github.com/nfroidure/gulp-streamify if you're reading this
-    // next versions should use https://www.npmjs.com/package/bufferstreams
-    if (file.isStream()) {
-      this.emit('error', new GulpError(PLUGIN_NAME, 'Streaming not supported'));
-      return cb();
-    }
-
-    svg.parseFile(file, options, function (result) {
-      buffer.push(result);
-      return cb(null);
+    // expand path to default templates
+    options.templates = options.templates.map(function (pathName) {
+        if (pathName in templatesPath) return templatesPath[pathName];
+        return pathName;
     });
 
-  // put all generated files back in the stream
-  }, function flush(cb) {
-    var that = this;
+    // buffer and transform every files
+    return through.obj(function transform(file, encoding, cb) {
 
-    var svgData = buffer.map(function (svgRawData) {
-      // defs are not at an SVG level
-      // they should be handled globally to the new SVG file
-      if (svgRawData.defs) defs.push(svgRawData.defs);
-      delete svgRawData.defs;
-      //
-      return svg.formatForTemplate(svgRawData, options);
+        if (file.isNull()) {
+            return cb(null, file);
+        }
+
+        // we don't handle streams :,(
+        // use https://github.com/nfroidure/gulp-streamify if you're reading this
+        // next versions should use https://www.npmjs.com/package/bufferstreams
+        if (file.isStream()) {
+            this.emit('error', new GulpError(PLUGIN_NAME, 'Streaming not supported'));
+            return cb();
+        }
+
+        svg.parseFile(file, options, function (result) {
+
+            if (options.fallback) {
+                svg.svgToPng(file, {width: result.width, height: result.height}, function(png){
+                    result.pngDatauri = png.toString('base64');
+                    buffer.push(result);
+                    return cb(null);
+                });
+            } else {
+                buffer.push(result);
+                return cb(null);
+            }
+        });
+
+        // put all generated files back in the stream
+    }, function flush(cb) {
+        var that = this;
+
+        var svgData = buffer.map(function (svgRawData) {
+            // defs are not at an SVG level
+            // they should be handled globally to the new SVG file
+            if (svgRawData.defs) defs.push(svgRawData.defs);
+            delete svgRawData.defs;
+            //
+            return svg.formatForTemplate(svgRawData, options);
+        });
+        // force defs to have a value.
+        // better for templates to check if `false` rather than length…
+        defs = defs.length > 0 ? defs.join('\n') : false;
+
+        var files = templates.renderAll(options.templates, {
+            svgClassname: options.svgClassname,
+            icons: svgData,
+            defs: defs,
+            noSvgClassname: options.noSvgClassname,
+            iconClassname: options.iconClassname,
+        });
+
+        function outputFiles(files) {
+            files.forEach(function (file) {
+                that.push(file);
+            });
+            cb();
+        }
+
+        BPromise.all(files).then(outputFiles);
     });
-    // force defs to have a value.
-    // better for templates to check if `false` rather than length…
-    defs = defs.length > 0 ? defs.join('\n') : false;
-
-    var files = templates.renderAll(options.templates, {
-      svgClassname: options.svgClassname,
-      icons: svgData,
-      defs: defs,
-    });
-
-    function outputFiles(files) {
-      files.forEach(function (file) {
-        that.push(file);
-      });
-      cb();
-    }
-
-    BPromise.all(files).then(outputFiles);
-  });
 }
 
 module.exports = gulpSvgSymbols;

@@ -261,6 +261,28 @@ transformData: function(svg, defaultData, options) {
 In your templates, svg original data are accessible in `icon.svg`.  
 Of course default templates need `defaultData`.
 
+#### fallback
+
+ouput a js file which can check if support svg, if yes, then append svg symbols at the start of body, if not, then fallback to png datauri sprite
+
+```js
+gulp.task('fallback', function () {
+    return gulp.src(svgGlob)
+    .pipe(svgSymbols({
+        fallback: true,  /*default is false*/
+        templates: [
+            "default-js"
+        ],
+        noSvgClassname: ".no-svg",  /*default*/
+        iconClassname: ".icon",   /*default*/
+        slug: function(name) {
+          return "icon-" + name;
+        }
+    }))
+    .pipe(gulp.dest('assets'));
+});
+```
+
 ### Other observations
 
 - If you want to manipulate your icons files, use [gulp-cheerio](https://www.npmjs.com/package/gulp-cheerio)
